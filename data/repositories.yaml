@@ -1,0 +1,126 @@
+version: "1.0"
+repositories:
+  - id: "auth-service"
+    name: "Authentication & Identity Service"
+    repo_url: "https://github.com/company-org/auth-service"
+    owner: "Security & Platform Team"
+    language: "Python / FastAPI"
+    description: "Central identity provider issuing JWT access tokens, handling user registrations, OAuth2, and RBAC policies."
+    dependencies:
+      upstream: []
+      downstream: ["order-service", "payment-service", "notification-service"]
+    database_tables:
+      - name: "users"
+        description: "Stores user credentials, password hashes, and profile metadata"
+        columns: ["id (UUID, PK)", "email (VARCHAR)", "password_hash (VARCHAR)", "role (ENUM)", "created_at (TIMESTAMP)"]
+      - name: "refresh_tokens"
+        description: "Active session refresh tokens"
+        columns: ["token_id (UUID, PK)", "user_id (UUID, FK)", "expires_at (TIMESTAMP)", "revoked (BOOLEAN)"]
+    apis:
+      - path: "/api/v1/auth/login"
+        method: "POST"
+        summary: "User authentication"
+        description: "Accepts email/password and returns JWT access + refresh tokens."
+      - path: "/api/v1/auth/verify"
+        method: "GET"
+        summary: "Verify JWT token"
+        description: "Validates incoming Authorization Bearer token for internal microservice calls."
+      - path: "/api/v1/users/{id}"
+        method: "GET"
+        summary: "Fetch user profile"
+        description: "Returns sanitized user information."
+
+  - id: "order-service"
+    name: "Order Processing Service"
+    repo_url: "https://github.com/company-org/order-service"
+    owner: "Checkout & Core Commerce Team"
+    language: "Go / Gin"
+    description: "Manages customer shopping carts, checkout workflows, order status state machine, and order history."
+    dependencies:
+      upstream: ["auth-service"]
+      downstream: ["payment-service", "inventory-service", "notification-service"]
+    database_tables:
+      - name: "orders"
+        description: "Master record of customer purchases and lifecycle status"
+        columns: ["id (UUID, PK)", "customer_id (UUID)", "total_amount (DECIMAL)", "status (ENUM: PENDING, PAID, SHIPPED, CANCELLED)", "created_at (TIMESTAMP)"]
+      - name: "order_items"
+        description: "Line items in an order"
+        columns: ["id (UUID, PK)", "order_id (UUID, FK)", "sku (VARCHAR)", "quantity (INT)", "unit_price (DECIMAL)"]
+    apis:
+      - path: "/api/v1/orders"
+        method: "POST"
+        summary: "Create new order"
+        description: "Initiates checkout, locks inventory with inventory-service, and requests payment with payment-service."
+      - path: "/api/v1/orders/{id}"
+        method: "GET"
+        summary: "Get order details"
+        description: "Retrieves order status, line items, and fulfillment tracking."
+
+  - id: "payment-service"
+    name: "Payment Gateway Service"
+    repo_url: "https://github.com/company-org/payment-service"
+    owner: "FinTech & Payments Team"
+    language: "Node.js / TypeScript"
+    description: "Integrates Stripe, PayPal, and credit card processors. Handles idempotency, refunds, and webhooks."
+    dependencies:
+      upstream: ["auth-service", "order-service"]
+      downstream: ["notification-service"]
+    database_tables:
+      - name: "transactions"
+        description: "Immutable ledger of all payment attempts and outcomes"
+        columns: ["id (UUID, PK)", "order_id (UUID)", "amount (DECIMAL)", "currency (VARCHAR)", "gateway_tx_id (VARCHAR)", "status (ENUM: SUCCESS, FAILED)"]
+    apis:
+      - path: "/api/v1/payments/charge"
+        method: "POST"
+        summary: "Charge payment method"
+        description: "Charges the specified payment source for an order amount with idempotency key."
+      - path: "/api/v1/payments/refund"
+        method: "POST"
+        summary: "Issue refund"
+        description: "Refunds a previous transaction by transaction ID."
+
+  - id: "notification-service"
+    name: "Notification & Messaging Service"
+    repo_url: "https://github.com/company-org/notification-service"
+    owner: "Customer Experience Team"
+    language: "Python / Celery"
+    description: "Consumes Kafka events from order/payment/auth to dispatch transactional emails, SMS, and push notifications."
+    dependencies:
+      upstream: ["auth-service", "order-service", "payment-service"]
+      downstream: []
+    database_tables:
+      - name: "notification_logs"
+        description: "Delivery audit log for emails and SMS"
+        columns: ["id (UUID, PK)", "recipient (VARCHAR)", "channel (ENUM: EMAIL, SMS, PUSH)", "template_id (VARCHAR)", "status (VARCHAR)", "sent_at (TIMESTAMP)"]
+    apis:
+      - path: "/api/v1/notifications/send"
+        method: "POST"
+        summary: "Send immediate notification"
+        description: "Synchronous trigger to send transactional email or SMS."
+      - path: "/api/v1/notifications/templates"
+        method: "GET"
+        summary: "List message templates"
+        description: "Returns available email/SMS template definitions."
+
+  - id: "inventory-service"
+    name: "Inventory & Warehouse Service"
+    repo_url: "https://github.com/company-org/inventory-service"
+    owner: "Supply Chain & Logistics"
+    language: "Java / Spring Boot"
+    description: "Real-time stock reservation, SKU management, and warehouse inventory tracking."
+    dependencies:
+      upstream: ["order-service"]
+      downstream: []
+    database_tables:
+      - name: "inventory_items"
+        description: "Warehouse stock levels per SKU"
+        columns: ["sku (VARCHAR, PK)", "warehouse_id (VARCHAR)", "quantity_available (INT)", "quantity_reserved (INT)"]
+    apis:
+      - path: "/api/v1/inventory/reserve"
+        method: "POST"
+        summary: "Reserve SKU stock"
+        description: "Temporarily reserves stock during checkout with expiration."
+      - path: "/api/v1/inventory/stock/{sku}"
+        method: "GET"
+        summary: "Check SKU stock"
+        description: "Returns available stock across warehouses."
