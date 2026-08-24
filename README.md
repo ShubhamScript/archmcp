@@ -9,7 +9,7 @@
 > **Give your AI coding assistant an organizational brain.**  
 > ArchMCP is a lightweight, remote Model Context Protocol (MCP) server that connects your AI assistants (Google Antigravity, Claude Desktop, Cursor, VS Code) to your entire microservice architecture in real time.
 
-📚 **[User Manual & Setup Guide](docs/USER_MANUAL.md)** · 🛡️ **[Enterprise Security Architecture & STRIDE Threat Model](docs/security_architecture.md)**
+📚 **[User Manual & Setup Guide](docs/USER_MANUAL.md)** · 🛡️ **[Security Architecture & STRIDE Threat Model](docs/security_architecture.md)**
 
 ---
 
