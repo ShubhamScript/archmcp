@@ -25,6 +25,7 @@ class ServiceMetadata(BaseModel):
     owner: str = Field("Engineering Team", description="Team or engineer responsible for this service")
     language: str = Field("Unknown", description="Primary tech stack (e.g. Python / FastAPI)")
     description: str = Field("", description="High level purpose and responsibilities")
+    tenant_id: str = Field("default", description="Multi-tenant boundary identifier")
     dependencies: ServiceDependencies = Field(default_factory=ServiceDependencies)
     apis: List[APIEndpoint] = Field(default_factory=list, description="Exposed REST or gRPC endpoints")
     database_tables: List[DatabaseTable] = Field(default_factory=list, description="Database tables owned by this service")

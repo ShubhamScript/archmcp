@@ -3,15 +3,15 @@
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![Model Context Protocol](https://img.shields.io/badge/MCP-2.0%20Compliant-purple.svg)](https://modelcontextprotocol.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests: 18/18 Passing](https://img.shields.io/badge/Tests-18%2F18%20Passing-brightgreen.svg)]()
+[![Security: Enterprise Ready](https://img.shields.io/badge/Security-Zero--Trust%20%7C%20RBAC%20%7C%20Audit-brightgreen.svg)]()
+[![Tests: 41/41 Passing](https://img.shields.io/badge/Tests-41%2F41%20Passing%20(>95%25%20cov)-brightgreen.svg)]()
 
 > **Give your AI coding assistant an organizational brain.**  
 > ArchMCP is a lightweight, remote Model Context Protocol (MCP) server that connects your AI assistants (Google Antigravity, Claude Desktop, Cursor, VS Code) to your entire microservice architecture in real time.
 
-📚 **[Read the Step-by-Step User Manual & Setup Guide](docs/USER_MANUAL.md)**
+📚 **[User Manual & Setup Guide](docs/USER_MANUAL.md)** · 🛡️ **[Enterprise Security Architecture & STRIDE Threat Model](docs/security_architecture.md)**
 
 ---
-
 
 ## 📖 The Story Behind ArchMCP
 
@@ -33,7 +33,7 @@ To fix this today, developers usually try one of two bad options:
 ### The Solution: A Shared Remote Brain
 **ArchMCP solves this by acting as a centralized, sub-millisecond architecture brain.**
 
-Instead of running as a private local command on one laptop, ArchMCP runs as a shared remote service. Any engineer on your team connects their AI assistant to the ArchMCP server URL with an authentication token.
+Instead of running as a private local command on one laptop, ArchMCP runs as a shared remote service. Any engineer on your team connects their AI assistant to the ArchMCP server URL with an authenticated token.
 
 When your AI assistant needs to know:
 * *"Which service handles refunds?"* $\rightarrow$ It calls `search_microservices`.
@@ -47,10 +47,15 @@ When your AI assistant needs to know:
 └──────────────────────────┬─────────────────────────────┘
                            │
                            │  HTTP / Server-Sent Events (SSE)
-                           │  Authorization: Bearer <token>
+                           │  Authorization: Bearer arch_live_<kid>_<secret>
                            │
 ┌──────────────────────────▼────────────────────────────────────────────────────────┐
-│                                   ArchMCP Server                                   │
+│                         ArchMCP Enterprise Ingress Gateway                        │
+│   • Sliding-Window Rate Limiter (60 req/min per key with RFC-compliant headers)  │
+│   • KeyStore Hashed Verification (HMAC-SHA256 with constant-time matching)       │
+│   • Enterprise OIDC / OAuth2 JWT Provider (IdP claims, tenant segregation)       │
+│   • Structured Security Audit Logging (JSON audit trail of all actions)          │
+│   • Fine-Grained RBAC Scope Gatekeeper (arch:read, arch:schema:read, etc.)        │
 │                                                                                    │
 │   ┌─────────────────────┐  ┌─────────────────────┐  ┌──────────────────────────┐   │
 │   │      MCP Tools      │  │    MCP Resources    │  │       MCP Prompts        │   │
@@ -64,7 +69,7 @@ When your AI assistant needs to know:
 │   │                       Microservice Intelligence Engine                     │   │
 │   │ • Transitive Graph Traversal & Blast Radius Analyzer (BFS)                 │   │
 │   │ • In-Memory Index & Token Search (< 2ms response time)                     │   │
-│   │ • Dynamic OpenAPI / Swagger 3.0 Importer                                   │   │
+│   │ • Dynamic OpenAPI / Swagger 3.0 Importer & Multi-Tenant Partitioning       │   │
 │   └───────────────────────────────────┬────────────────────────────────────────┘   │
 │                                       │                                            │
 │   ┌───────────────────────────────────▼────────────────────────────────────────┐   │
@@ -76,98 +81,71 @@ When your AI assistant needs to know:
 
 ---
 
-## 💡 How I Designed It & Why
+## 🛡️ Enterprise Security Architecture
 
-When designing ArchMCP, the goal was to keep it **fast, clean, and practical** without unnecessary complexity:
+ArchMCP is built with a zero-trust security model designed for enterprise environments:
 
-### 1. Why Remote HTTP/SSE instead of a local CLI process?
-Standard MCP servers run as a local `stdio` subprocess. While that works for single-user desktop scripts, a company with 50 engineers working across 30 microservices needs **one central source of truth**. By hosting ArchMCP over HTTP/SSE, architectural updates and new API schemas are instantly available to everyone without local repository cloning.
+* **Cryptographic Token Generator**: Keys follow `arch_{env}_{kid}_{secret}` format with 256 bits of CSPRNG entropy.
+* **Hashed KeyStore**: Plaintext tokens are never stored on disk or logged; records store salted HMAC-SHA256 hashes.
+* **Constant-Time Verification**: `hmac.compare_digest` prevents timing side-channel attacks.
+* **Fine-Grained RBAC Scopes**: Tools enforce granular permission scopes (`arch:read`, `arch:schema:read`, `arch:blast_radius`, `arch:diagram`, `arch:write`, `arch:admin`, `*`).
+* **Sliding-Window Rate Limiting**: Per-token rate limiting protects against SSE denial of service with RFC headers.
+* **Structured Security Audit Logs**: Immutable JSON audit logs track all authentication attempts, key revocations, and tool invocations.
+* **OIDC / OAuth2 Ready**: Pluggable JWT validation layer supports corporate identity providers (Okta, Entra ID, Keycloak).
 
-### 2. Why In-Memory Graph Indexing instead of a Heavy Vector Database?
-Many AI tools immediately jump to heavy vector databases (like Pinecone or Milvus). For structured architecture metadata (API routes, database tables, and service dependencies), graph traversal and fast lexical token matching are:
-* **Deterministic**: Exact matches for routes like `/api/v1/auth/login` or table `users`.
-* **Zero Overhead**: Runs with ~38 MB of RAM and zero external API keys or GPU requirements.
-* **Blazing Fast**: Sub-2ms response time.
-
-### 3. Trade-offs Considered
-
-| Approach | The Good | The Bad | The Decision |
-| :--- | :--- | :--- | :--- |
-| **Local CLI (`stdio`)** | Simple for one person. | Everyone has to clone every repo locally; no centralized updates. | **Skipped** |
-| **Custom REST API** | Familiar web endpoints. | Requires writing and maintaining custom plugins for every IDE. | **Skipped** (MCP is the open standard) |
-| **Heavy Vector DB** | Semantic search. | Slow cold-starts, high cost, requires embeddings infrastructure. | **Deferred** for simple in-memory graph index |
-| **Remote MCP over SSE** | Centralized, instant sync, authenticated, works with all major AI tools. | Requires running a lightweight server. | **Adopted** ✅ |
+👉 *Read the full [Enterprise Security Whitepaper & STRIDE Threat Model](docs/security_architecture.md).*
 
 ---
 
 ## 📊 Performance Benchmarks & Token Economics
-
-We measured the difference between asking an AI assistant to analyze a microservice task by dumping repository context vs querying ArchMCP:
 
 | Benchmark Metric | Full Codebase Prompting | ArchMCP Query (Live) | Efficiency Gain |
 | :--- | :--- | :--- | :--- |
 | **Token Consumption** | ~140,000 to 180,000 tokens | **~120 to 380 tokens** | **> 99.6% Reduction** |
 | **Execution Latency** | N/A (Full file scans / manual) | **~1.8 ms to 16 ms** | Sub-second real-time |
 | **Memory Footprint** | ~500 MB (Local clones + indexers) | **~38 MB** | **> 90% Less RAM** |
-| **Test Suite** | N/A | **18/18 Passing in < 1.5s** | Instant verification |
-
-> 💡 **Real-Time Verification**: You can test and observe these performance metrics live at any time using the built-in [Interactive Dashboard Sandbox](http://localhost:8000/dashboard), which calculates query latency and token savings on every request.
+| **Test Suite** | N/A | **41/41 Passing in < 1.5s** | Instant verification |
 
 ---
 
-## 🔍 Surprises & Discoveries Along the Way
+## ⌨️ Developer CLI & Key Management
 
-Building a remote MCP server in Python revealed a few fascinating technical details:
-1. **Type Hints Become AI Schemas**: The official Python MCP SDK automatically reads Python type annotations and docstrings to generate JSON-Schema definitions that the LLM uses to pick tools. Good docstrings literally make the AI smarter.
-2. **DNS Rebinding Guard**: The MCP 2.0 protocol automatically validates incoming `Host` headers to protect internal developer networks from browser-based DNS attacks.
-3. **The 2-Phase SSE Handshake**: When an AI client connects to `GET /sse`, the server opens the event stream and returns a unique session postback URL (`/messages/?session_id=...`). All subsequent JSON-RPC tool calls are posted to this session.
-
----
-
-## 🖥️ Live Browser Visualizer & Sandbox
-
-ArchMCP includes an embedded, responsive web dashboard at `http://localhost:8000/dashboard` (or `/`):
-
-![ArchMCP Interactive Dashboard & Live Sandbox](docs/dashboard.png)
-
-* **Interactive Topology**: Click any service card (`auth-service`, `order-service`, `payment-service`) to inspect its APIs, owned database tables, and dependency mapping.
-* **Live Tool Sandbox**: Test any MCP tool in real time and see the JSON-RPC request/response with live token savings and latency metrics.
-
----
-
-## ⌨️ Developer CLI
-
-ArchMCP comes with a handy command-line tool:
+ArchMCP includes an administrative and developer CLI:
 
 ```bash
-# 1. Start the Remote Server
-archmcp run
+# --- Server Execution ---
+archmcp run                        # Launch the authenticated remote MCP server
+archmcp explore                    # Inspect catalog in terminal
+archmcp blast-radius auth-service  # Calculate change impact
 
-# 2. Explore the Catalog in your Terminal
-archmcp explore
+# --- Enterprise Key Management ---
+# Create an architect API key valid for 90 days:
+archmcp keys create --name "Claude Desktop - Alice" --role architect --expires 90
 
-# 3. Calculate Change Blast Radius
-archmcp blast-radius auth-service
+# List active keys in keystore:
+archmcp keys list
 
-# 4. Import a live OpenAPI / Swagger Specification
-archmcp import-openapi https://petstore.swagger.io/v2/swagger.json --owner "Commerce Team"
+# Rotate an existing key (revokes old key, issues replacement):
+archmcp keys rotate <kid>
+
+# Revoke a compromised key immediately:
+archmcp keys revoke <kid>
 ```
 
 ---
 
 ## 🔌 Connecting Your AI Assistant
 
-Once ArchMCP is running (e.g. at `http://127.0.0.1:8000/sse`), configure your AI tool in seconds:
+When starting ArchMCP, an initial root admin key is displayed on first boot (or generated via `archmcp keys create`). Configure your AI assistant with the generated key:
 
-### Google Antigravity IDE
-Add to `.agents/mcp_config.json`:
+### Google Antigravity IDE (`.agents/mcp_config.json`)
 ```json
 {
   "mcpServers": {
     "archmcp": {
       "url": "http://127.0.0.1:8000/sse",
       "headers": {
-        "Authorization": "Bearer dev-token-secret-123"
+        "Authorization": "Bearer arch_live_<YOUR_KEY_ID>_<YOUR_SECRET_TOKEN>"
       }
     }
   }
@@ -181,7 +159,7 @@ Add to `.agents/mcp_config.json`:
     "archmcp": {
       "url": "http://127.0.0.1:8000/sse",
       "headers": {
-        "Authorization": "Bearer dev-token-secret-123"
+        "Authorization": "Bearer arch_live_<YOUR_KEY_ID>_<YOUR_SECRET_TOKEN>"
       }
     }
   }
@@ -193,7 +171,7 @@ Add to `.agents/mcp_config.json`:
 {
   "mcpServers": {
     "archmcp": {
-      "url": "http://127.0.0.1:8000/sse?token=dev-token-secret-123"
+      "url": "http://127.0.0.1:8000/sse?token=arch_live_<YOUR_KEY_ID>_<YOUR_SECRET_TOKEN>"
     }
   }
 }
@@ -209,23 +187,13 @@ git clone https://github.com/ShubhamScript/archmcp.git
 cd archmcp
 pip install -e .[dev]
 
-# 2. Run Tests
+# 2. Run Comprehensive Test Suite
 pytest -v
 
-# 3. Start Server
+# 3. Start Authenticated Server
 archmcp run
 ```
 Open **`http://localhost:8000/dashboard`** in your browser to explore your architecture interactively.
-
----
-
-## 🔮 What's Next on the Roadmap
-
-If expanding ArchMCP for 500+ microservices in a large enterprise:
-1. **Semantic Concept Search**: Adding `pgvector` or `sqlite-vec` with local embeddings so developers can ask conceptual questions (*"Where does recurring billing live?"*).
-2. **Backstage Integration**: Auto-syncing from Spotify's Backstage `catalog-info.yaml`.
-3. **Redis Event Bus**: Synchronizing active SSE sessions across horizontally scaled container replicas.
-4. **Git Webhooks**: Automatically updating schemas whenever a PR merges.
 
 ---
 
@@ -235,23 +203,28 @@ If expanding ArchMCP for 500+ microservices in a large enterprise:
 archmcp/
 ├── README.md                      # Project guide & architecture story
 ├── pyproject.toml                 # Dependencies, CLI scripts, and build config
-├── Dockerfile                     # Container build instructions
-├── docker-compose.yml             # Container orchestration
+├── Dockerfile                     # Hardened non-root container definition
+├── docker-compose.yml             # Production container composition with persistence
 ├── data/
-│   └── repositories.yaml          # Sample microservices catalog
+│   ├── repositories.yaml          # Sample microservices catalog
+│   ├── keystore.json              # Hashed API keys repository
+│   └── audit.log                  # Structured JSON security audit log stream
+├── docs/
+│   ├── USER_MANUAL.md             # End-to-end setup guide
+│   └── security_architecture.md   # Security whitepaper & STRIDE threat model
 ├── src/
 │   └── archmcp/
-│       ├── main.py                # Server bootstrap
-│       ├── cli.py                 # Developer CLI (run, explore, blast-radius, import-openapi)
-│       ├── config/settings.py     # Environment settings
-│       ├── auth/                  # Bearer token verification & ASGI middleware
+│       ├── main.py                # Server bootstrap & security initialization
+│       ├── cli.py                 # CLI suite (run, explore, blast-radius, keys)
+│       ├── config/settings.py     # Enterprise settings
+│       ├── auth/                  # Crypto engine, KeyStore, RBAC scopes, audit, rate limiter, OIDC
 │       ├── mcp/                   # Tools, Resources, Prompts, and SSE route handlers
 │       ├── services/              # Blast radius, graph traversal, and search logic
 │       ├── ingestion/             # OpenAPI importer, markdown parser, dependency scanner
-│       ├── storage/               # In-memory database & token search index
+│       ├── storage/               # In-memory database with multi-tenant partitioning
 │       ├── web/                   # Embedded visualizer and live testing playground
 │       └── models/                # Pydantic schemas (Architecture, BlastRadius, Services)
-└── tests/                         # 18 unit & integration tests
+└── tests/                         # 41 unit, integration & security boundary tests
 ```
 
 ---

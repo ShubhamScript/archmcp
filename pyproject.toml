@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "archmcp"
-version = "0.1.0"
-description = "ArchMCP: Centralized Remote MCP Server for Microservices Architecture Intelligence"
+version = "0.2.0"
+description = "ArchMCP: Enterprise Remote MCP Server for Microservices Architecture Intelligence"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -22,11 +22,15 @@ dependencies = [
 dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
+    "pytest-cov>=5.0.0",
 ]
 
 [project.scripts]
 archmcp = "archmcp.cli:main"
 
-
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

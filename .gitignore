@@ -33,6 +33,12 @@ ENV/
 .env.*
 !.env.example
 
+# Runtime security data & KeyStore (do not commit active keys)
+data/keystore.json
+data/*.log
+data/*.tmp
+*.tmp
+
 # Testing & Coverage
 .pytest_cache/
 .coverage

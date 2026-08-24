@@ -4,11 +4,11 @@
     "archmcp": {
       "url": "http://127.0.0.1:8000/sse",
       "headers": {
-        "Authorization": "Bearer dev-token-secret-123"
+        "Authorization": "Bearer arch_live_<YOUR_KID>_<YOUR_SECRET_TOKEN>"
       }
     },
-    "archmcp-alt-url": {
-      "url": "http://127.0.0.1:8000/sse?token=dev-token-secret-123"
+    "archmcp-query-param": {
+      "url": "http://127.0.0.1:8000/sse?token=arch_live_<YOUR_KID>_<YOUR_SECRET_TOKEN>"
     }
   }
 }

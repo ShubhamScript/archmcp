@@ -1,5 +1,5 @@
 """
-ArchMCP - Developer CLI & Architecture Inspector.
+ArchMCP - Developer CLI, Architecture Inspector & Key Management.
 
 @author Shubham Upadhyay
 @license MIT
@@ -20,6 +20,8 @@ from .services.architecture_service import ArchitectureService
 from .services.repository_service import RepositoryService
 from .ingestion.openapi_importer import OpenAPIImporter
 from .storage.database import db
+from .auth.key_store import keystore
+from .auth.permissions import ROLE_PROFILES, Scope
 
 arch_service = ArchitectureService()
 repo_service = RepositoryService()
@@ -33,10 +35,13 @@ def cmd_run(args):
     @return None
     """
     print("=" * 65)
-    print(f"🚀 Launching {settings.APP_NAME} (Remote MCP HTTP/SSE Server)")
+    print(f"🚀 Launching {settings.APP_NAME} (Enterprise MCP Server)")
     print(f"🌐 Remote SSE Endpoint : http://{settings.HOST}:{settings.PORT}/sse")
     print(f"📊 Web Visualizer      : http://{settings.HOST}:{settings.PORT}/dashboard")
     print(f"❤️  Health Probe        : http://{settings.HOST}:{settings.PORT}/health")
+    print(f"🔒 Auth Enabled        : {settings.AUTH_ENABLED}")
+    print(f"⚡ Rate Limit Enabled  : {settings.RATE_LIMIT_ENABLED} ({settings.RATE_LIMIT_PER_MINUTE} req/min)")
+    print(f"🛡️ KeyStore File       : {settings.KEY_STORE_FILE}")
     print("=" * 65)
     uvicorn.run(app, host=settings.HOST, port=settings.PORT, log_level="info")
 
@@ -110,6 +115,97 @@ def cmd_import_openapi(args):
     print(f"✅ Successfully registered microservice '{svc.id}' ({svc.name}) with {len(svc.apis)} APIs.")
 
 
+# -----------------------------------------------------------------------------
+# KEY MANAGEMENT CLI COMMANDS
+# -----------------------------------------------------------------------------
+
+def cmd_keys_create(args):
+    """Creates a new API key and displays the one-time raw secret token."""
+    scopes = []
+    if args.role and args.role in ROLE_PROFILES:
+        scopes.extend(ROLE_PROFILES[args.role])
+    if args.scopes:
+        scopes.extend([s.strip() for s in args.scopes.split(",") if s.strip()])
+    if not scopes:
+        scopes = [Scope.ARCH_READ.value]
+
+    scopes = list(set(scopes))
+
+    record, raw_token = keystore.create_key(
+        name=args.name,
+        scopes=scopes,
+        owner=args.owner or "admin",
+        tenant_id=args.tenant or "default",
+        environment=args.env or "live",
+        expires_in_days=args.expires
+    )
+
+    print("\n" + "=" * 65)
+    print("🔑 NEW API KEY CREATED")
+    print("=" * 65)
+    print(f"📌 Key ID (kid) : {record.kid}")
+    print(f"🏷️  Name         : {record.name}")
+    print(f"🏢 Tenant       : {record.tenant_id}")
+    print(f"👤 Owner        : {record.owner}")
+    print(f"🛡️ Scopes       : {', '.join(record.scopes)}")
+    print(f"⏳ Expires At   : {record.expires_at or 'Never'}")
+    print("-" * 65)
+    print(f"🔐 RAW API TOKEN (SAVE NOW - NEVER SHOWN AGAIN):")
+    print(f"   {raw_token}")
+    print("=" * 65 + "\n")
+
+
+def cmd_keys_list(args):
+    """Lists existing API keys."""
+    keys = keystore.list_keys(tenant_id=args.tenant, include_revoked=args.all)
+    print("\n" + "=" * 65)
+    print("🔑 CONFIGURED API KEYS IN KEYSTORE")
+    print("=" * 65)
+    if not keys:
+        print("No API keys found. Use 'archmcp keys create --name <name>' to create one.")
+    for k in keys:
+        status_icon = "🟢" if k.is_valid() else ("🔴" if k.status.value == "revoked" else "🟡")
+        print(f"\n{status_icon} [{k.kid}] {k.name}")
+        print(f"   Status   : {k.status.value.upper()}")
+        print(f"   Tenant   : {k.tenant_id}")
+        print(f"   Owner    : {k.owner}")
+        print(f"   Scopes   : {', '.join(k.scopes)}")
+        print(f"   Created  : {k.created_at.strftime('%Y-%m-%d %H:%M:%S UTC')}")
+        print(f"   Expires  : {k.expires_at.strftime('%Y-%m-%d %H:%M:%S UTC') if k.expires_at else 'Never'}")
+        print(f"   Last Used: {k.last_used_at.strftime('%Y-%m-%d %H:%M:%S UTC') if k.last_used_at else 'Never'}")
+    print("\n" + "=" * 65 + "\n")
+
+
+def cmd_keys_revoke(args):
+    """Revokes an API key."""
+    success = keystore.revoke_key(args.kid)
+    if success:
+        print(f"✅ Successfully revoked API key kid: {args.kid}")
+    else:
+        print(f"❌ Error: Key ID '{args.kid}' not found in KeyStore.")
+        sys.exit(1)
+
+
+def cmd_keys_rotate(args):
+    """Rotates an API key."""
+    res = keystore.rotate_key(args.kid, expires_in_days=args.expires)
+    if not res:
+        print(f"❌ Error: Key ID '{args.kid}' not found in KeyStore.")
+        sys.exit(1)
+
+    new_record, new_token = res
+    print("\n" + "=" * 65)
+    print(f"🔄 API KEY ROTATED (Old Key {args.kid} Revoked)")
+    print("=" * 65)
+    print(f"📌 New Key ID   : {new_record.kid}")
+    print(f"🏷️  Name         : {new_record.name}")
+    print(f"🛡️ Scopes       : {', '.join(new_record.scopes)}")
+    print("-" * 65)
+    print(f"🔐 NEW RAW API TOKEN (SAVE NOW - NEVER SHOWN AGAIN):")
+    print(f"   {new_token}")
+    print("=" * 65 + "\n")
+
+
 def main():
     """
     CLI main parser and command dispatcher.
@@ -142,9 +238,43 @@ def main():
     p_imp.add_argument("--owner", default="Platform Team", help="Owning team name")
     p_imp.set_defaults(func=cmd_import_openapi)
 
+    # Command group: keys
+    p_keys = subparsers.add_parser("keys", help="Manage API authentication keys")
+    k_subs = p_keys.add_subparsers(dest="keys_command", help="Key operations")
+
+    # keys create
+    k_create = k_subs.add_parser("create", help="Create a new API key")
+    k_create.add_argument("--name", required=True, help="Descriptive name (e.g. 'Claude Desktop')")
+    k_create.add_argument("--role", choices=["admin", "architect", "developer", "viewer", "service_account"], help="Pre-packaged role")
+    k_create.add_argument("--scopes", help="Comma-separated scopes (e.g. 'arch:read,arch:blast_radius')")
+    k_create.add_argument("--owner", default="admin", help="Owner identity")
+    k_create.add_argument("--tenant", default="default", help="Tenant organization ID")
+    k_create.add_argument("--env", default="live", choices=["live", "test", "dev"], help="Environment")
+    k_create.add_argument("--expires", type=int, help="Days until expiration")
+    k_create.set_defaults(func=cmd_keys_create)
+
+    # keys list
+    k_list = k_subs.add_parser("list", help="List API keys")
+    k_list.add_argument("--tenant", help="Filter by tenant ID")
+    k_list.add_argument("--all", action="store_true", help="Include revoked and expired keys")
+    k_list.set_defaults(func=cmd_keys_list)
+
+    # keys revoke
+    k_revoke = k_subs.add_parser("revoke", help="Revoke an API key")
+    k_revoke.add_argument("kid", help="Key identifier (kid) to revoke")
+    k_revoke.set_defaults(func=cmd_keys_revoke)
+
+    # keys rotate
+    k_rotate = k_subs.add_parser("rotate", help="Rotate an API key")
+    k_rotate.add_argument("kid", help="Key identifier (kid) to rotate")
+    k_rotate.add_argument("--expires", type=int, help="Days until new key expires")
+    k_rotate.set_defaults(func=cmd_keys_rotate)
+
     args = parser.parse_args()
     if not args.command:
         cmd_run(args)
+    elif args.command == "keys" and not getattr(args, "keys_command", None):
+        p_keys.print_help()
     else:
         args.func(args)
 
