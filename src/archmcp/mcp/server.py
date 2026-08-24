@@ -16,6 +16,8 @@ from .tools import register_tools
 from .resources import register_resources
 from .prompts import register_prompts
 from ..auth.authentication import RemoteMCPAuthMiddleware
+from ..auth.rate_limiter import RateLimitMiddleware
+from ..auth.key_store import keystore
 from ..config.settings import settings
 from ..storage.database import db
 from ..web.dashboard import dashboard_view, dashboard_data_endpoint, dashboard_run_tool_endpoint
@@ -56,12 +58,30 @@ async def health_check(request):
     @return JSONResponse: Server health status payload
     """
     service_count = len(db.list_services())
+    key_count = len(keystore.list_keys(include_revoked=False))
     return JSONResponse({
         "status": "healthy",
         "app": settings.APP_NAME,
         "environment": settings.ENVIRONMENT,
         "indexed_services": service_count,
-        "auth_enabled": settings.AUTH_ENABLED
+        "active_api_keys": key_count,
+        "auth_enabled": settings.AUTH_ENABLED,
+        "rate_limiting_enabled": settings.RATE_LIMIT_ENABLED,
+        "oidc_enabled": settings.OIDC_ENABLED
+    })
+
+
+async def health_live(request):
+    """Kubernetes liveness probe."""
+    return JSONResponse({"status": "alive"})
+
+
+async def health_ready(request):
+    """Kubernetes readiness probe checking metadata DB and KeyStore readiness."""
+    is_ready = len(db.list_services()) >= 0
+    return JSONResponse({
+        "status": "ready" if is_ready else "not_ready",
+        "ready": is_ready
     })
 
 
@@ -80,11 +100,16 @@ def create_asgi_app() -> Starlette:
         Route("/api/dashboard/data", endpoint=dashboard_data_endpoint, methods=["GET"]),
         Route("/api/dashboard/run-tool", endpoint=dashboard_run_tool_endpoint, methods=["POST"]),
         Route("/health", endpoint=health_check, methods=["GET"]),
+        Route("/health/live", endpoint=health_live, methods=["GET"]),
+        Route("/health/ready", endpoint=health_ready, methods=["GET"]),
     ] + list(sse_app.routes)
 
     middleware = [
-        Middleware(RemoteMCPAuthMiddleware)
+        Middleware(RemoteMCPAuthMiddleware),
     ]
+
+    if settings.RATE_LIMIT_ENABLED:
+        middleware.append(Middleware(RateLimitMiddleware))
 
     app = Starlette(
         debug=settings.DEBUG,

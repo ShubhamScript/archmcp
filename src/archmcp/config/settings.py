@@ -1,16 +1,16 @@
 """
-ArchMCP - Configuration & Environment Settings.
+ArchMCP - Enterprise Configuration & Environment Settings.
 
 @author Shubham Upadhyay
 @license MIT
 """
 
-from typing import List
+from typing import Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    """Application configuration settings loaded from environment variables or .env file."""
+    """Enterprise application configuration loaded from environment variables or .env file."""
     
     APP_NAME: str = "ArchMCP Server"
     HOST: str = "0.0.0.0"
@@ -18,8 +18,25 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     ENVIRONMENT: str = "development"
 
+    # Security & Authentication
     AUTH_ENABLED: bool = True
-    AUTH_TOKENS: str = "dev-token-secret-123,employee-key-abc"
+    KEY_STORE_FILE: str = "data/keystore.json"
+    BOOTSTRAP_ADMIN_KEY: bool = True
+
+    # Rate Limiting
+    RATE_LIMIT_ENABLED: bool = True
+    RATE_LIMIT_PER_MINUTE: int = 60
+    RATE_LIMIT_WINDOW_SECONDS: int = 60
+
+    # Structured Security Audit Logging
+    AUDIT_LOG_FILE: str = "data/audit.log"
+
+    # Enterprise OIDC / OAuth2 Integration
+    OIDC_ENABLED: bool = False
+    OIDC_ISSUER: Optional[str] = None
+    OIDC_AUDIENCE: Optional[str] = None
+
+    # Storage & Catalogs
     REPOSITORIES_FILE: str = "data/repositories.yaml"
 
     model_config = SettingsConfigDict(
@@ -27,15 +44,6 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore"
     )
-
-    @property
-    def valid_tokens(self) -> List[str]:
-        """
-        Parses comma-separated AUTH_TOKENS string into a list.
-
-        @return List[str]: List of valid authentication token strings
-        """
-        return [t.strip() for t in self.AUTH_TOKENS.split(",") if t.strip()]
 
 
 settings = Settings()

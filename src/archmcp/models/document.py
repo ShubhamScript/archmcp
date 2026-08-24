@@ -15,3 +15,4 @@ class Document(BaseModel):
     title: str = Field(..., description="Document title")
     content: str = Field(..., description="Markdown or text content")
     service_id: Optional[str] = Field(None, description="Associated microservice ID if applicable")
+    tenant_id: str = Field("default", description="Multi-tenant boundary identifier")
