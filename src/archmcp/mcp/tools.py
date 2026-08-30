@@ -14,6 +14,7 @@ from ..services.repository_service import RepositoryService
 from ..services.architecture_service import ArchitectureService
 from ..services.knowledge_service import KnowledgeService
 from ..services.context_service import ContextService
+from ..discovery.engine import RepositoryDiscoveryEngine
 from ..auth.permissions import Scope, has_required_scopes
 from ..auth.audit import audit_logger, AuditEventType
 
@@ -23,6 +24,7 @@ repo_service = RepositoryService()
 arch_service = ArchitectureService()
 knowledge_service = KnowledgeService()
 context_service = ContextService()
+discovery_engine = RepositoryDiscoveryEngine()
 
 
 def validate_scope(tool_name: str, required_scope: str, user_scopes: Optional[List[str]] = None) -> Optional[str]:
@@ -324,3 +326,31 @@ def register_tools(server: MCPServer) -> None:
         )
         diagram = arch_service.generate_sequence_diagram(flow_name=flow_name)
         return json.dumps(diagram.model_dump(), indent=2)
+
+    # -------------------------------------------------------------------------
+    # TOOL 12: Automatic Repository & Architecture Discovery - Scope: arch:read
+    # -------------------------------------------------------------------------
+    @server.tool(
+        name="scan_repository",
+        description="Automatically scan a repository or monorepo path to discover microservices, API routes, database schemas, queues, jobs, and build the dependency graph."
+    )
+    def scan_repository(path: str, persist: bool = True, owner: str = "Engineering Team") -> str:
+        """
+        Scans a local project path and automatically discovers its architecture.
+
+        @param str path: Path to local project directory or monorepo to scan
+        @param bool persist: Whether to save discovered services into the active ArchMCP knowledge base (default True)
+        @param str owner: Default owner team for discovered microservices
+        @return str: Formatted JSON discovery report
+        """
+        audit_logger.log(
+            event_type=AuditEventType.TOOL_INVOCATION,
+            action="tool:scan_repository",
+            details={"path": path, "persist": persist}
+        )
+        try:
+            report = discovery_engine.discover(directory=path, persist=persist, owner=owner)
+            return json.dumps(report.model_dump(), indent=2)
+        except Exception as e:
+            return json.dumps({"error": f"Repository discovery failed: {str(e)}"}, indent=2)
+

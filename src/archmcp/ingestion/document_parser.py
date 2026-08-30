@@ -14,13 +14,14 @@ class DocumentParser:
     """
 
     @staticmethod
-    def parse_markdown(service_id: str, title: str, content: str) -> Document:
+    def parse_markdown(service_id: str, title: str, content: str, tenant_id: str = "default") -> Document:
         """
         Parses raw markdown text into a structured Document model.
 
         @param str service_id: Unique microservice identifier
         @param str title: Document title
         @param str content: Raw markdown text content
+        @param str tenant_id: Multi-tenant boundary identifier
         @return Document: Structured Document entity
         """
         lines = content.splitlines()
@@ -36,5 +37,7 @@ class DocumentParser:
             id=doc_id,
             title=title,
             service_id=service_id,
-            content=content
+            content=content,
+            tenant_id=tenant_id
         )
+

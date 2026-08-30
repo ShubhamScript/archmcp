@@ -5,7 +5,8 @@ from .api import APIEndpoint
 from .database_table import DatabaseTable
 from .document import Document
 from .repository import RepositoryInfo
-from .architecture import ArchitectureGraph, ArchitectureNode, ArchitectureEdge
+from .architecture import ArchitectureGraph, ArchitectureNode, ArchitectureEdge, BlastRadiusReport, SequenceDiagram
+from .discovery import EnvVarInfo, MessageQueueInfo, BackgroundJobInfo, DockerServiceInfo, DiscoveryReport
 
 __all__ = [
     "ServiceMetadata",
@@ -17,4 +18,12 @@ __all__ = [
     "ArchitectureGraph",
     "ArchitectureNode",
     "ArchitectureEdge",
+    "BlastRadiusReport",
+    "SequenceDiagram",
+    "EnvVarInfo",
+    "MessageQueueInfo",
+    "BackgroundJobInfo",
+    "DockerServiceInfo",
+    "DiscoveryReport",
 ]
+

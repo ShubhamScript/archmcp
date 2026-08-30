@@ -78,6 +78,7 @@ async def test_mcp_server_tools_registered():
     assert "get_full_context_package" in tool_names
     assert "analyze_blast_radius" in tool_names
     assert "generate_sequence_diagram" in tool_names
+    assert "scan_repository" in tool_names
 
 
 @pytest.mark.asyncio
