@@ -1,6 +1,7 @@
 # 🏛️ ArchMCP : Central Remote MCP Server for Microservices
 
 [![M8ven Score](https://m8ven.ai/badge/mcp/shubhamscript-archmcp-1lanou?v=6fed8854ef4d2d6b4378e425a46c7433)](https://m8ven.ai/mcp/shubhamscript-archmcp-1lanou)
+[![archmcp MCP server](https://glama.ai/mcp/servers/ShubhamScript/archmcp/badges/score.svg)](https://glama.ai/mcp/servers/ShubhamScript/archmcp)
 
 ArchMCP connects your AI coding assistant (like Claude Desktop, Cursor, Google Antigravity, or VS Code) to your entire microservices architecture.
 
