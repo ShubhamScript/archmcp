@@ -82,6 +82,61 @@ async def test_mcp_server_tools_registered():
 
 
 @pytest.mark.asyncio
+async def test_mcp_tool_annotations():
+    server = MCPServer("test-archmcp")
+    register_tools(server)
+
+    tools = await server.list_tools()
+    assert len(tools) == 12
+
+    # Verify every tool has title, all 4 hints declared, strictly boolean, and parameter descriptions
+    for tool in tools:
+        assert tool.title is not None and len(tool.title) > 0, f"Tool '{tool.name}' is missing human-readable title"
+        assert tool.annotations is not None, f"Tool '{tool.name}' is missing annotations"
+        dumped = tool.annotations.model_dump(by_alias=True)
+        for hint in ["readOnlyHint", "destructiveHint", "idempotentHint", "openWorldHint"]:
+            assert hint in dumped, f"Tool '{tool.name}' missing hint '{hint}'"
+            assert isinstance(dumped[hint], bool), f"Tool '{tool.name}' hint '{hint}' is not boolean: {dumped[hint]}"
+
+        # Verify all input schema properties have explicit descriptions
+        properties = tool.input_schema.get("properties", {})
+        for prop_name, prop_meta in properties.items():
+            assert "description" in prop_meta and len(prop_meta["description"]) > 0, (
+                f"Tool '{tool.name}' parameter '{prop_name}' is missing description in input_schema"
+            )
+
+    tools_by_name = {t.name: t for t in tools}
+
+    # 11 Read-only inspection and query tools
+    readonly_tools = [
+        "search_microservices",
+        "list_all_services",
+        "get_service_details",
+        "get_service_apis",
+        "get_service_dependencies",
+        "get_database_schema",
+        "find_api_owner",
+        "find_table_owner",
+        "get_full_context_package",
+        "analyze_blast_radius",
+        "generate_sequence_diagram",
+    ]
+    for name in readonly_tools:
+        ann = tools_by_name[name].annotations
+        assert ann.read_only_hint is True, f"{name} must have read_only_hint=True"
+        assert ann.destructive_hint is False, f"{name} must have destructive_hint=False"
+        assert ann.idempotent_hint is True, f"{name} must have idempotent_hint=True"
+        assert ann.open_world_hint is False, f"{name} must have open_world_hint=False"
+
+    # scan_repository modifies environment by persisting discovered services to DB
+    scan_ann = tools_by_name["scan_repository"].annotations
+    assert scan_ann.read_only_hint is False, "scan_repository must have read_only_hint=False"
+    assert scan_ann.destructive_hint is False, "scan_repository must have destructive_hint=False"
+    assert scan_ann.idempotent_hint is True, "scan_repository must have idempotent_hint=True"
+    assert scan_ann.open_world_hint is False, "scan_repository must have open_world_hint=False"
+
+
+@pytest.mark.asyncio
 async def test_mcp_server_tool_invocation():
     initialize_knowledge_base()
     server = MCPServer("test-archmcp")

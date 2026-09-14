@@ -14,9 +14,10 @@ A simple guide to install, configure, scan repositories, and connect your AI cod
    - [Cursor IDE](#cursor-ide)
    - [VS Code](#vs-code-cline--roo-code--continue)
 5. [CLI Commands](#5-cli-commands)
-6. [How to Use in Everyday Coding](#6-how-to-use-in-everyday-coding)
-7. [Web Dashboard (/dashboard)](#7-web-dashboard-dashboard)
-8. [Troubleshooting & FAQs](#8-troubleshooting--faqs)
+6. [Available MCP Tools & Annotations](#6-available-mcp-tools--annotations)
+7. [How to Use in Everyday Coding](#7-how-to-use-in-everyday-coding)
+8. [Web Dashboard (/dashboard)](#8-web-dashboard-dashboard)
+9. [Troubleshooting & FAQs](#9-troubleshooting--faqs)
 
 ---
 
@@ -167,7 +168,36 @@ archmcp keys revoke <kid>
 
 ---
 
-## 6. How to Use in Everyday Coding
+## 6. Available MCP Tools & Annotations
+<a id="available-mcp-tools-annotations"></a>
+
+ArchMCP exposes 12 production-grade MCP tools. Each tool includes explicit **titles**, **parameter descriptions with validation constraints**, and strict **behavioral annotations** compliant with OpenAI's directory and MCP 2025/2026 specifications:
+
+* **`readOnlyHint`**: Indicates whether invoking the tool alters the environment (`true` enables AI hosts like Claude Desktop and Cursor to execute queries without prompting the user for approval).
+* **`destructiveHint`**: Confirms whether an operation can destroy data (`false` across all tools confirms zero risk of data loss).
+* **`idempotentHint`**: Indicates whether identical repeated invocations produce the same state, enabling safe AI retry loops.
+* **`openWorldHint`**: Restricts tool domain reasoning to the local organization graph rather than open internet queries.
+
+### Tool Directory
+
+| Tool Name | Display Title | Description | Read-Only | Destructive | Idempotent | Open World | Scope |
+| :--- | :--- | :--- | :---: | :---: | :---: | :---: | :--- |
+| `search_microservices` | Search Microservices & Knowledge | Semantic & keyword search across services, routes, schemas, and docs | `true` | `false` | `true` | `false` | `arch:read` |
+| `list_all_services` | List All Registered Services | Returns a catalog of registered microservices with tech stacks & owners | `true` | `false` | `true` | `false` | `arch:read` |
+| `get_service_details` | Get Service Metadata Details | Retrieves complete metadata, repository URL, owner, and language | `true` | `false` | `true` | `false` | `arch:read` |
+| `get_service_apis` | Get Service API Endpoints | Lists all REST and gRPC API endpoints exposed by a microservice | `true` | `false` | `true` | `false` | `arch:read` |
+| `get_service_dependencies` | Get Service Dependencies Graph | Returns upstream (callers) and downstream (callees) dependency maps | `true` | `false` | `true` | `false` | `arch:read` |
+| `get_database_schema` | Get Service Database Schema | Inspects database tables, columns, data types, and primary/foreign keys | `true` | `false` | `true` | `false` | `arch:schema:read` |
+| `find_api_owner` | Find API Route Owner | Discovers which microservice owns or handles a route pattern or keyword | `true` | `false` | `true` | `false` | `arch:read` |
+| `find_table_owner` | Find Database Table Owner | Reverse lookup to locate which microservice owns a given table name | `true` | `false` | `true` | `false` | `arch:schema:read` |
+| `get_full_context_package` | Get Full Microservice Context Package | Aggregates service metadata, docs, and implementation guidelines | `true` | `false` | `true` | `false` | `arch:read` |
+| `analyze_blast_radius` | Analyze Architecture Blast Radius | Computes transitive dependency impact & severity for API or service changes | `true` | `false` | `true` | `false` | `arch:blast_radius` |
+| `generate_sequence_diagram` | Generate Multi-Service Sequence Diagram | Generates Mermaid sequence diagram models for end-to-end flows | `true` | `false` | `true` | `false` | `arch:diagram` |
+| `scan_repository` | Scan Repository Architecture & Discovery | Discovers routes, schemas, queues, jobs, and builds dependency graph | `false` | `false` | `true` | `false` | `arch:read` |
+
+---
+
+## 7. How to Use in Everyday Coding
 
 When chatting with your AI assistant, just ask your normal questions:
 * *"Which service handles billing, and what database table does it use?"*
@@ -180,13 +210,13 @@ The AI uses ArchMCP's tools to fetch only what it needs without dumping whole fi
 
 ---
 
-## 7. Web Dashboard (`/dashboard`)
+## 8. Web Dashboard (`/dashboard`)
 
 Visit `http://localhost:8000/dashboard` in your browser. It gives you a clean view of all registered microservices, database schemas, APIs, and an interactive tool tester.
 
 ---
 
-## 8. Troubleshooting & FAQs
+## 9. Troubleshooting & FAQs
 
 **Q: AI assistant says connection refused.**  
 Make sure `archmcp run` is running on `http://localhost:8000`.
