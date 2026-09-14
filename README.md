@@ -164,22 +164,24 @@ archmcp keys revoke <kid>
 
 ## 🛠️ MCP Tools Included
 
-Your AI assistant has access to these tools out of the box:
+Your AI assistant has access to these 12 tools out of the box:
 
-| Tool | What it does |
-| :--- | :--- |
-| `scan_repository` | Scans a folder to discover services, APIs, DB schemas, queues, jobs, and dependency graphs |
-| `search_microservices` | Search across services, routes, tables, and docs with keywords |
-| `list_all_services` | Get a summary list of all tracked services |
-| `get_service_details` | Get full metadata, tech stack, repo URL, and owner for a service |
-| `get_service_apis` | List all API routes for a service |
-| `get_database_schema` | Get tables and columns owned by a service |
-| `get_service_dependencies` | Get upstream callers and downstream dependencies |
-| `find_api_owner` | Find which service owns a specific route (e.g. `/payments/charge`) |
-| `find_table_owner` | Find which service owns a database table |
-| `analyze_blast_radius` | See all direct and indirect downstream services affected by a change |
-| `generate_sequence_diagram` | Generates a Mermaid sequence diagram for workflows (e.g. checkout, refund) |
-| `get_full_context_package` | Bundles metadata, schemas, and docs for AI code generation |
+| Tool | What it does | Type |
+| :--- | :--- | :--- |
+| `search_microservices` | Search across services, routes, tables, and docs with keywords | Read-only |
+| `list_all_services` | Get a summary list of all tracked services | Read-only |
+| `get_service_details` | Get full metadata, tech stack, repo URL, and owner for a service | Read-only |
+| `get_service_apis` | List all API routes for a service | Read-only |
+| `get_service_dependencies` | Get upstream callers and downstream dependencies | Read-only |
+| `get_database_schema` | Get tables and columns owned by a service | Read-only |
+| `find_api_owner` | Find which service owns a specific route (e.g. `/payments/charge`) | Read-only |
+| `find_table_owner` | Find which service owns a database table | Read-only |
+| `get_full_context_package` | Bundles metadata, schemas, and docs for AI code generation | Read-only |
+| `analyze_blast_radius` | See all direct and indirect downstream services affected by a change | Read-only |
+| `generate_sequence_diagram` | Generates a Mermaid sequence diagram for workflows (e.g. checkout, refund) | Read-only |
+| `scan_repository` | Scans a folder to discover services, APIs, DB schemas, queues, jobs, and call graphs | Additive |
+
+All tools declare explicit MCP behavioral annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`), display titles, and parameter descriptions. This lets hosts like Claude Desktop and Cursor run queries smoothly without confirmation prompts and ensures compliance with public MCP directories.
 
 ---
 
@@ -196,7 +198,7 @@ archmcp/
 │   ├── ingestion/     # OpenAPI spec importer and document parser
 │   ├── web/           # Browser dashboard and visualizer
 │   └── cli.py         # Command line interface
-├── tests/             # Comprehensive pytest test suite (51 tests)
+├── tests/             # Comprehensive pytest test suite (52 tests)
 ├── data/              # Default repositories.yaml catalog and keystore
 └── docs/              # User manual and documentation
 ```
